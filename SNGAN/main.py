@@ -13,8 +13,25 @@ from model import ResDiscriminator32, ResGenerator32
 from regan import Regan_training
 import numpy as np
 import warnings
+from fvcore.nn import FlopCountAnalysis
 
 warnings.filterwarnings("ignore")
+
+
+def calculate_flops(netG, netD, noise_size, image_size, batch_size, device):
+    """Compute overall FLOPs for generator and discriminator."""
+    noise = torch.randn(batch_size, noise_size, device=device)
+    fake_images = netG(noise)
+
+    flops_gen = FlopCountAnalysis(netG, noise).total()
+    flops_disc = FlopCountAnalysis(netD, fake_images).total()
+
+    total_flops = flops_gen + flops_disc
+
+    print(f"FLOPs for Generator: {flops_gen / 1e9:.2f} GFLOPs")
+    print(f"FLOPs for Discriminator: {flops_disc / 1e9:.2f} GFLOPs")
+    print(f"Overall FLOPs: {total_flops / 1e9:.2f} GFLOPs")
+
 
 def save_generated_images(netG, epoch, device, noise_size=128, num_images=16):
     """Generate and save images from the generator."""
@@ -24,6 +41,7 @@ def save_generated_images(netG, epoch, device, noise_size=128, num_images=16):
         os.makedirs("generated_images", exist_ok=True)
         vutils.save_image(fake_images, f'generated_images/generated_epoch_{epoch}.png', normalize=True, nrow=4)
         print(f"Generated images saved for epoch {epoch}")
+
 
 def main():
     dataset = dset.CIFAR10(root=args.dataroot,
@@ -46,8 +64,9 @@ def main():
 
     print("Starting Training Loop...")
 
+    calculate_flops(netG, netD, args.noise_size, args.image_size, args.batch_size, device)
+
     flag_g = 1
-    fid_scores = []
 
     for epoch in range(1, args.epoch + 1):
 
@@ -73,7 +92,6 @@ def main():
                     flag_g = 1
 
         for i, data in enumerate(dataloader, 0):
-
             netD.zero_grad()
             real_cpu = data[0].to(device)
             b_size = real_cpu.size(0)
@@ -115,9 +133,6 @@ def main():
         if epoch % 10 == 0:
             save_generated_images(netG, epoch, device, args.noise_size)
 
-        # Compute FID score every 10 epochs
-
-    # Save FID scores to file
 
 if __name__ == '__main__':
     model_name = 'SNGAN'
