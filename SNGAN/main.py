@@ -18,19 +18,25 @@ from fvcore.nn import FlopCountAnalysis
 warnings.filterwarnings("ignore")
 
 
-def calculate_flops(netG, netD, noise_size, image_size, batch_size, device):
-    """Compute overall FLOPs for generator and discriminator."""
+def calculate_flops(netG, netD, noise_size, batch_size, device, epoch):
+    """Compute FLOPs for generator and discriminator dynamically."""
     noise = torch.randn(batch_size, noise_size, device=device)
     fake_images = netG(noise)
 
     flops_gen = FlopCountAnalysis(netG, noise).total()
     flops_disc = FlopCountAnalysis(netD, fake_images).total()
-
     total_flops = flops_gen + flops_disc
 
-    print(f"FLOPs for Generator: {flops_gen / 1e9:.2f} GFLOPs")
-    print(f"FLOPs for Discriminator: {flops_disc / 1e9:.2f} GFLOPs")
-    print(f"Overall FLOPs: {total_flops / 1e9:.2f} GFLOPs")
+    log_str = (f"Epoch {epoch} | Generator FLOPs: {flops_gen / 1e9:.2f} GFLOPs | "
+               f"Discriminator FLOPs: {flops_disc / 1e9:.2f} GFLOPs | Total: {total_flops / 1e9:.2f} GFLOPs")
+
+    print(log_str)
+    
+    # Save to file
+    with open("flops_log.txt", "a") as log_file:
+        log_file.write(log_str + "\n")
+
+    return total_flops
 
 
 def save_generated_images(netG, epoch, device, noise_size=128, num_images=16):
@@ -64,7 +70,8 @@ def main():
 
     print("Starting Training Loop...")
 
-    calculate_flops(netG, netD, args.noise_size, args.image_size, args.batch_size, device)
+    # Compute initial FLOPs before training starts
+    calculate_flops(netG, netD, args.noise_size, args.batch_size, device, epoch=0)
 
     flag_g = 1
 
@@ -128,6 +135,9 @@ def main():
                 print('[%4d/%4d][%3d/%3d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
                       % (epoch, args.epoch, i, len(dataloader),
                          errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
+
+        # Compute FLOPs after applying sparsity effects
+        calculate_flops(netG, netD, args.noise_size, args.batch_size, device, epoch)
 
         # Save generated images every 10 epochs
         if epoch % 10 == 0:
