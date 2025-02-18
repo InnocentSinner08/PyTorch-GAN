@@ -44,10 +44,10 @@ class Regan_training(nn.Module):
             self.train_on_sparse = True
             self.update_masks()
 
-    def apply_masks(self):
-        for w, mask_w in zip(self.layers, self.masks):
-            w.data[mask_w] = 0
-            w.grad.data[mask_w] = 0
+   def apply_masks(self):
+    for i, (w, mask_w) in enumerate(zip(self.layers, self.masks)):
+        w.data = w.data * (~mask_w).float()  # Zero-out FLOPs computation
+
 
     def forward(self, x):
         return self.model(x)

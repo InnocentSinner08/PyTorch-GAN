@@ -19,7 +19,10 @@ warnings.filterwarnings("ignore")
 
 
 def calculate_flops(netG, netD, noise_size, batch_size, device, epoch):
-    """Compute FLOPs for generator and discriminator dynamically."""
+    """Compute FLOPs after applying sparsity masks"""
+    with torch.no_grad():
+        netG.apply_masks()  # Apply sparsity before measuring FLOPs
+
     noise = torch.randn(batch_size, noise_size, device=device)
     fake_images = netG(noise)
 
