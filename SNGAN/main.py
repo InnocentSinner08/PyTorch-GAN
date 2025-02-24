@@ -16,34 +16,27 @@ warnings.filterwarnings("ignore")
 from torchmetrics.image.fid import FrechetInceptionDistance
 import torch.nn.functional as F
 
-def compute_fid_score(netG, dataloader, device, noise_size=128, num_images=1000):
-    """Computes FID score between real and generated images."""
+def compute_fid_score(netG, dataloader, device, noise_size):
+    from torchmetrics.image.fid import FrechetInceptionDistance
     
     fid = FrechetInceptionDistance(feature=2048).to(device)
     
-    netG.eval()
-    real_images_collected = 0
+    # Process real images
+    for i, (real_images, _) in enumerate(dataloader):
+        real_images = (real_images * 255).byte()  # Convert to uint8
+        fid.update(real_images.to(device), real=True)
     
-    # Collect real images
-    for real_batch in dataloader:
-        real_images = real_batch[0].to(device)
-        real_images = F.interpolate(real_images, size=(299, 299), mode='bilinear', align_corners=False)  # Resize for Inception
-        fid.update(real_images, real=True)
-        real_images_collected += real_images.shape[0]
-        if real_images_collected >= num_images:
-            break
-
     # Generate fake images
     with torch.no_grad():
-        for _ in range(num_images // dataloader.batch_size + 1):
-            noise = torch.randn(dataloader.batch_size, noise_size, device=device)
-            fake_images = netG(noise)
-            fake_images = F.interpolate(fake_images, size=(299, 299), mode='bilinear', align_corners=False)  # Resize for Inception
-            fid.update(fake_images, real=False)
+        noise = torch.randn(len(dataloader.dataset), noise_size, device=device)
+        fake_images = netG(noise).cpu()
+        fake_images = (fake_images * 255).byte()  # Convert to uint8
+        fid.update(fake_images.to(device), real=False)
+    
+    fid_value = fid.compute()
+    print(f"FID Score: {fid_value:.2f}")
+    return fid_value
 
-    fid_score = fid.compute().item()
-    print(f"FID Score: {fid_score:.4f}")
-    return fid_score
 
 def detect_plateau(loss_history, patience=5, loss_threshold=0.01):
     """Detects if the loss has plateaued by checking if the recent loss values have minimal change."""
