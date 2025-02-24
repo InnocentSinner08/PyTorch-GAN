@@ -141,7 +141,7 @@ if __name__ == '__main__':
     parser.add_argument('--warmup_epoch', type=int, default=100, help="Warm-up epochs before pruning")
     parser.add_argument('--data_ratio', type=float, default=1.0, help="Fraction of dataset to use")
     parser.add_argument('--regan', action="store_true", help="Enable ReGAN pruning & growing")
-    parser.add_argument('--real_images_path', type=str, required=True, help="Path to real images for FID computation")
+    parser.add_argument('--real_images_path', type=str, default='../dataset/cifar-10-batches-py', help="Path to real images for FID computation")
 
     args = parser.parse_args()
     os.makedirs(args.dataroot, exist_ok=True)
