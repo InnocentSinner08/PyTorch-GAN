@@ -13,6 +13,37 @@ from regan import Regan_training
 import warnings
 
 warnings.filterwarnings("ignore")
+from torchmetrics.image.fid import FrechetInceptionDistance
+import torch.nn.functional as F
+
+def compute_fid_score(netG, dataloader, device, noise_size=128, num_images=1000):
+    """Computes FID score between real and generated images."""
+    
+    fid = FrechetInceptionDistance(feature=2048).to(device)
+    
+    netG.eval()
+    real_images_collected = 0
+    
+    # Collect real images
+    for real_batch in dataloader:
+        real_images = real_batch[0].to(device)
+        real_images = F.interpolate(real_images, size=(299, 299), mode='bilinear', align_corners=False)  # Resize for Inception
+        fid.update(real_images, real=True)
+        real_images_collected += real_images.shape[0]
+        if real_images_collected >= num_images:
+            break
+
+    # Generate fake images
+    with torch.no_grad():
+        for _ in range(num_images // dataloader.batch_size + 1):
+            noise = torch.randn(dataloader.batch_size, noise_size, device=device)
+            fake_images = netG(noise)
+            fake_images = F.interpolate(fake_images, size=(299, 299), mode='bilinear', align_corners=False)  # Resize for Inception
+            fid.update(fake_images, real=False)
+
+    fid_score = fid.compute().item()
+    print(f"FID Score: {fid_score:.4f}")
+    return fid_score
 
 def detect_plateau(loss_history, patience=5, loss_threshold=0.01):
     """Detects if the loss has plateaued by checking if the recent loss values have minimal change."""
@@ -76,8 +107,12 @@ def train_with_dynamic_pruning(netG, netD, optimizerG, optimizerD, dataloader, d
             loss_history = []  # Reset history after mask update
         
         # Save images every 10 epochs
+                # Save images and compute FID score every 10 epochs
         if epoch % 10 == 0:
             save_generated_images(netG, epoch, device, args.noise_size)
+            fid_score = compute_fid_score(netG, dataloader, device, args.noise_size)
+            print(f"Epoch {epoch} - FID Score: {fid_score:.4f}")
+
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
