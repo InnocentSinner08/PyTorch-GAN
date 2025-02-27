@@ -110,7 +110,7 @@ def train_with_dynamic_pruning(netG, netD, optimizerG, optimizerD, dataloader, d
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--epoch', type=int, default=1000)
-    argparser.add_argument('--batch_size', type=int, default=32)
+    argparser.add_argument('--batch_size', type=int, default=8)
     argparser.add_argument('--lr', type=float, default=2e-4)
     argparser.add_argument('--workers', type=int, default=4)
     argparser.add_argument('--image_size', type=int, default=32)
