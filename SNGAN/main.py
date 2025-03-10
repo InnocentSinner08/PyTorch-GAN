@@ -51,9 +51,20 @@ def save_generated_images(netG, epoch, device, noise_size=128, num_images=16):
     with torch.no_grad():
         fixed_noise = torch.randn(num_images, noise_size, device=device)
         fake_images = netG(fixed_noise).cpu()
+
+        # Ensure images are scaled correctly if using Tanh
+        fake_images = (fake_images + 1) / 2  # Convert [-1, 1] → [0, 1]
+
+        # Ensure the generator outputs RGB images
+        assert fake_images.shape[1] == 3, "Generator should output 3-channel images!"
+
+        # Dynamically adjust rows
+        nrow = int(num_images ** 0.5)  # Make grid square-like
+        
         os.makedirs("generated_images", exist_ok=True)
-        vutils.save_image(fake_images, f'generated_images/generated_epoch_{epoch}.png', normalize=True, nrow=4)
+        vutils.save_image(fake_images, f'generated_images/generated_epoch_{epoch}.png', normalize=True, nrow=nrow)
         print(f"Generated images saved for epoch {epoch}")
+
 
 def train_with_dynamic_pruning(netG, netD, optimizerG, optimizerD, dataloader, device, args):
     """Train function with dynamic loss-based pruning updates."""
@@ -100,11 +111,8 @@ def train_with_dynamic_pruning(netG, netD, optimizerG, optimizerD, dataloader, d
             loss_history = []  # Reset history after mask update
         
         # Save images every 10 epochs
-                # Save images and compute FID score every 10 epochs
         if epoch % 10 == 0:
             save_generated_images(netG, epoch, device, args.noise_size)
-            fid_score = compute_fid_score(netG, dataloader, device, args.noise_size)
-            print(f"Epoch {epoch} - FID Score: {fid_score:.4f}")
 
 
 if __name__ == '__main__':
